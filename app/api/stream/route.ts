@@ -15,7 +15,8 @@ export async function GET(request: Request) {
     const platformExt = process.platform === 'win32' ? '.exe' : '';
     const binPath = path.resolve(process.cwd(), `bin/yt-dlp${platformExt}`);
     
-    const cmd = `"${binPath}" -j --no-warnings --no-check-certificate "https://www.youtube.com/watch?v=${id}"`;
+    // Add android,web fallback to bypass "Sign in to confirm you're not a bot" datacenter IP blocks
+    const cmd = `"${binPath}" -j --no-warnings --no-check-certificate --extractor-args "youtube:player_client=android,web" "https://www.youtube.com/watch?v=${id}"`;
     const { stdout } = await execAsync(cmd, { maxBuffer: 1024 * 1024 * 10 });
     const data = JSON.parse(stdout);
 
