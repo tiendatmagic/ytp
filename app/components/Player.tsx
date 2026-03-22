@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Video, Music, Loader2, Repeat, Repeat1 } from 'lucide-react';
+import { getMedia, saveMedia } from '../utils/db';
 
 interface Track {
   id: string;
@@ -36,21 +37,54 @@ export default function Player({ currentTrack, repeatMode, onRepeatChange, onNex
     setStreamData(null);
     setIsPlaying(false);
 
-    // Fetch stream URLs
-    fetch(`/api/stream?id=${currentTrack.id}`)
-      .then(res => res.json())
-      .then(data => {
+    const loadTrack = async () => {
+      try {
+        // 1. Check Offline Cache
+        try {
+          const cachedBlob = await getMedia(currentTrack.id);
+          if (cachedBlob) {
+            console.log('Playing from offline cache!');
+            const localUrl = URL.createObjectURL(cachedBlob);
+            setStreamData({ audioUrl: localUrl, videoUrl: null }); // Video offline not supported yet to save DB space
+            setLoading(false);
+            setIsPlaying(true);
+            setProgress(0);
+            setDuration(0);
+            setupMediaSession(currentTrack);
+            return;
+          }
+        } catch (dbErr) {
+          console.error('Offline cache read error', dbErr);
+        }
+
+        // 2. Fetch new proxy stream
+        const res = await fetch(`/api/stream?id=${currentTrack.id}`);
+        const data = await res.json();
+        
+        if (data.error) throw new Error(data.error);
+        
         setStreamData(data);
         setLoading(false);
         setIsPlaying(true);
         setProgress(0);
         setDuration(0);
         setupMediaSession(currentTrack);
-      })
-      .catch(err => {
+
+        // 3. Background download for offline caching (audio only to save space)
+        if (data.audioUrl && data.audioUrl.includes('/api/proxy')) {
+           fetch(data.audioUrl)
+             .then(r => r.blob())
+             .then(blob => saveMedia(currentTrack.id, blob))
+             .then(() => console.log('Saved to offline cache!', currentTrack.id))
+             .catch(e => console.error('Cache save error', e));
+        }
+      } catch (err) {
         console.error('Failed to load stream', err);
         setLoading(false);
-      });
+      }
+    };
+    
+    loadTrack();
   }, [currentTrack]);
 
   const playPromiseRef = useRef<Promise<void> | null>(null);
