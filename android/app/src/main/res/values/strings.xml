@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">YM Clone</string>
+    <string name="title_activity_main">YM Clone</string>
+    <string name="package_name">com.example.ytmusicclone</string>
+    <string name="custom_url_scheme">com.example.ytmusicclone</string>
+</resources>
